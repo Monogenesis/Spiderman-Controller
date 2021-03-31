@@ -10,14 +10,14 @@ public class PlayerController : MonoBehaviour
 	public float JumpForce = 500;
 	public LayerMask whatIsGround;
 
-	// Use this for initialization
+
 	void Start()
 	{
 		thisAnim = GetComponent<Animator>();
 		rigid = GetComponent<Rigidbody>();
 	}
 
-	// Update is called once per frame
+
 	void Update()
 	{
 		var h = Input.GetAxis("Horizontal");
