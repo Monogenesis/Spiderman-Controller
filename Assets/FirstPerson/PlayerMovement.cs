@@ -49,14 +49,17 @@ public class PlayerMovement : MonoBehaviour
     public float maxWebDistance;
     public float swingSpeed;
     private bool _isSwinging;
+    private bool _swingingDown;
+    private float lastYPos;
+
     
 
     private bool _isGrounded;
-    Vector3 velocity;
-    LineRenderer lineRenderer;
+    public Vector3 velocity;
+    public LineRenderer lineRenderer;
     private void Start()
     {
-        lineRenderer = gameObject.AddComponent<LineRenderer>();
+        
         lineRenderer.startWidth = 0.02f;
         lineRenderer.endWidth = 0.02f;
         Material lineMaterial = new Material(Shader.Find("Standard"));
@@ -69,6 +72,7 @@ public class PlayerMovement : MonoBehaviour
 
         if (_isSwinging)
         {              
+                
                 webTarget.LookAt(transform.position);
                 Vector3 limit = webTarget.position + webTarget.forward * maxWebDistance;
                 transform.position = limit;      
@@ -81,6 +85,7 @@ public class PlayerMovement : MonoBehaviour
     {
         _isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
         _isOnTrampoline = Physics.CheckSphere(groundCheck.position, groundDistance, trampolineMask);
+ 
 
         if (_isGrounded && velocity.y < 0)
         {
@@ -92,22 +97,29 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 move = transform.right * x + transform.forward * z;
 
+     
 
-        // Find best spider contact point
         if (Input.GetMouseButtonDown(1))
         {
             _isSwinging = !_isSwinging;
-            velocity += Vector3.down * swingSpeed;
+            //velocity += Vector3.down * swingSpeed;
+            //velocity.y += velocity.x;
         }
         if (_isSwinging)
         {
-            velocity.y -= gravity * Time.deltaTime * 0.99f;
+           
+ 
+            //velocity.y -= gravity * Time.deltaTime * 0.99f;
+            if (Input.GetAxis("Vertical") > 0)
+            controller.Move(new Vector3(transform.forward.x, 0, transform.forward.z) * Time.deltaTime * swingSpeed);
+            //velocity.y -= gravity * Time.deltaTime; //  cancel out gravity
+            velocity.y = Mathf.Clamp(velocity.y, gravity, -gravity);
         }
 
 
         // Grappling Hook
             RaycastHit hit;
-        if (Input.GetMouseButtonDown(2) && !_isGrappling && _remainingGrapplingCooldown <= 0 && Physics.Raycast(cam.transform.position,cam.transform.forward, out hit, grapplingDistance, grapplingTargets))
+        if (Input.GetMouseButtonDown(1) && !_isGrappling && _remainingGrapplingCooldown <= 0 && Physics.Raycast(cam.transform.position,cam.transform.forward, out hit, grapplingDistance, grapplingTargets))
         {
             grapplingTargetPosition = hit.point;
             lineRenderer.enabled = true;
@@ -130,6 +142,7 @@ public class PlayerMovement : MonoBehaviour
             _remainingGrapplingTime -= Time.deltaTime;
             controller.Move((grapplingTargetPosition - transform.position).normalized * Mathf.Lerp(_currentGrapplingSpeed, grapplingSpeed, 1f) * Time.deltaTime);
             lineRenderer.SetPositions(new Vector3[] { transform.position, grapplingTargetPosition });
+            velocity.y = 0f;
             velocity.y -= gravity * Time.deltaTime; // cancel out gravity
         }
         else
@@ -198,6 +211,6 @@ public class PlayerMovement : MonoBehaviour
         controller.Move(move * speed * Time.deltaTime);
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
-
+        lastYPos = transform.position.y;
     }
 }

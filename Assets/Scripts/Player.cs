@@ -13,7 +13,7 @@ public class Player : MonoBehaviour
     public float YSensitivity = 2f;
     public float MinimumX = -90F;
     public float MaximumX = 90F;
-
+    public Transform groundCheck;
     private float lastYPos;
     private bool swingBack;
 
@@ -55,7 +55,6 @@ public class Player : MonoBehaviour
     {
 
         m_Rigidbody = GetComponent<Rigidbody>();
-        cam = Camera.main;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         rope = GetComponent<LineRenderer>();
@@ -97,14 +96,13 @@ public class Player : MonoBehaviour
         {
             falling = false;
         }
-        lastYPos = transform.position.y;
+     
         Debug.Log(falling);
-        if (Physics.Raycast(transform.position, Vector3.down, transform.localScale.y * 0.5f + groundDistance, whatIsGround))
+        onGround= Physics.CheckSphere(groundCheck.position, groundDistance, whatIsGround);
+        if (onGround)
         {
-            onGround = true;
             destroyHook();
         }
-
         if (ropeTarget == null)
         {
             m_Rigidbody.useGravity = true;
@@ -116,17 +114,7 @@ public class Player : MonoBehaviour
 
         }else
         {
-
-            float xPos = ropeTarget.transform.position.x;
-            float yPos = ropeTarget.transform.position.y + ropeDistance * Mathf.Cos(ropeAngle);
-            float zPos = ropeTarget.transform.position.z + ropeDistance * Mathf.Sin(ropeAngle);
-
-            Vector3 nextPos = new Vector3(xPos, yPos, zPos).normalized;
-
-            transform.position += nextPos;
             m_Rigidbody.useGravity = false;
-
-            /*
             // speed up or slow down
             if (ropeVelocity < 0.1)
             {
@@ -134,39 +122,40 @@ public class Player : MonoBehaviour
                 swingBack = !swingBack;
             }
             
-            if (falling)
+       
+            
+
+            if (lastYPos > transform.position.y)
             {
-                ropeVelocity += 0.75f * Time.deltaTime;
-          
-            }else if (!falling)
+
+                ropeVelocity += 1.5f * Time.deltaTime;
+            }
+            else if (lastYPos < transform.position.y)
             {
-                ropeVelocity -= 0.75f * Time.deltaTime;
-         
+                ropeVelocity -= 1.5f * Time.deltaTime;
             }
             else
             {
-               
-                ropeVelocity = 0.1f;
+                ropeVelocity = 0.2f;
             }
-       
-          
-            if(Input.GetAxis("Horizontal") > 0.1f || Input.GetAxis("Horizontal") < -0.1f)
+            lastYPos = transform.position.y;
+
+
+            if (Input.GetAxis("Horizontal") > 0.1f || Input.GetAxis("Horizontal") < -0.1f)
             {
-                //ropeTiltAxis = ropeTarget.transform.up;
-                ropeTarget.transform.Rotate(ropeTarget.transform.up, -Input.GetAxis("Horizontal") * ropeTiltSpeed  * ropeSpeed * Time.deltaTime * Mathf.Clamp(ropeVelocity, 0, maxRopeVelocity));           
+                ropeTiltAxis = ropeTarget.transform.up;
+                ropeTarget.transform.Rotate(ropeTarget.transform.up, -Input.GetAxis("Horizontal") * ropeTiltSpeed * Time.deltaTime);           
             }
             //ropeTarget.transform.rotation = Quaternion.Slerp(ropeTarget.transform.rotation, Quaternion.Euler(ropeTiltAxis), 0.01f);
             //ropeTarget.transform.rotation = Quaternion.Euler(ropeTarget.transform.rotation.x, Mathf.Lerp(ropeTarget.transform.rotation.y, ropeTiltAxis.y, 0.1f * Time.deltaTime), ropeTarget.transform.rotation.z);
 
-            m_Rigidbody.useGravity = false;
             ropeRotationAxis = ropeTarget.transform.right;
             if (swingBack)
-            ropeTarget.transform.RotateAround(ropeTarget.transform.position, -ropeRotationAxis, ropeSpeed * (1 / ropeDistance) * Time.deltaTime * Mathf.Clamp(ropeVelocity, 0, maxRopeVelocity));
+            ropeTarget.transform.RotateAround(ropeTarget.transform.position, -ropeRotationAxis, ropeSpeed * (1 / ropeDistance) * Time.deltaTime * ropeVelocity);
             else
             {
-                ropeTarget.transform.RotateAround(ropeTarget.transform.position, ropeRotationAxis, ropeSpeed * (1 / ropeDistance) * Time.deltaTime * Mathf.Clamp(ropeVelocity, 0, maxRopeVelocity));
-            }
-             */
+                ropeTarget.transform.RotateAround(ropeTarget.transform.position, ropeRotationAxis, ropeSpeed * (1 / ropeDistance) * Time.deltaTime * ropeVelocity);
+            }           
             transform.rotation = Quaternion.Euler(0, transform.rotation.eulerAngles.y, 0);
                
         }
@@ -200,10 +189,11 @@ public class Player : MonoBehaviour
 
                 }
                 shootRope(ray, hit.point);
+               
             }
         }
 
-    
+
 
     }
 
@@ -214,7 +204,7 @@ public class Player : MonoBehaviour
             // Draw Rope
             rope.SetPosition(1, transform.position + transform.forward);
         }
-        
+    
     }
 
 
@@ -223,8 +213,6 @@ public class Player : MonoBehaviour
         gameObject.transform.parent = null;
         Destroy(ropeTarget);
         rope.positionCount = 0;
-
-
     }
 
     public void shootRope(Ray ray, Vector3 targetPoint)
@@ -239,7 +227,7 @@ public class Player : MonoBehaviour
         ropeRotationAxis = ropeTarget.transform.right;
         ropeTiltAxis = ropeTarget.transform.up;
         ropeRestingRotation = new Vector3(cam.transform.rotation.x, cam.transform.rotation.y, -180.0f);
-        ropeVelocity = 0;
+      ropeVelocity = 0;
 
         // Draw Rope
         rope.positionCount = 2;
