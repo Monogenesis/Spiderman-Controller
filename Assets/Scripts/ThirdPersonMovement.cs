@@ -13,13 +13,14 @@ public class ThirdPersonMovement : MonoBehaviour
 
     public Transform handPositionSwinging;
 
+    [Header("Gravity Settings")]
+    public Vector3 gravityDirection = new Vector3(0, -1, 0);
     public float gravity = 9.81f;
     public float groundDistance = 0.4f;
 
     public float speed = 6f;
     public float turnSmoothTime = 0.1f;
-
-    private bool _isGrounded;
+    [SerializeField] private bool _isGrounded;
 
     float turnSmoothVelocity;
 
@@ -27,24 +28,41 @@ public class ThirdPersonMovement : MonoBehaviour
     LineRenderer lineRenderer;
 
     // Jumping
+
+    [Header("Jump settings")]
     private bool _canDoubleJump;
     public float jumpHeight = 3f;
 
 
-    public Vector3 gravityDirection = new Vector3(0, -1, 0);
     private Vector3 oldPos;
 
 
     // Swing
+    [Header("Swinging Settings")]
     public LayerMask webtargets;
     private bool isSwinging;
     public float ropeDistance;
     public float dampening = 0.01f;
     //[SerializeField] private Vector3 swingVelocity;
-    public GameObject anker;
+
     public float maxDistance;
-    public float swingSpeed;
     public float maxSwingSpeed;
+    private float swingSpeed;
+    private GameObject anker;
+
+    [Header("Best Web Target Settings")]
+    public bool displayGizmos;
+    public float futureSteps = 0;
+    public Vector3 WebTargetSearchBoxDimensions = new Vector3(3, 1, 3);
+    public float WebTargetSphereRadius = 10;
+    [Range(0, 50)]
+    public float minHeightForTarget = 5;
+
+    bool hasHitWebTarget;
+
+    RaycastHit webHit;
+
+    private Vector3 WebTargetSearchPosition = Vector3.zero;
 
     // Grappling Hook
     /*
@@ -78,6 +96,7 @@ public class ThirdPersonMovement : MonoBehaviour
     void Update()
     {
         _isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+        // Physics.CheckCapsule
 
         if (_isGrounded && velocity.y < 0)
         {
@@ -86,49 +105,58 @@ public class ThirdPersonMovement : MonoBehaviour
             velocity.y = -2f;
         }
 
-
-
         // Swing action
+        //Debug.DrawLine(cam.transform.position, cam.transform.position + cam.transform.forward * ropeDistance, Color.red);
+        //Debug.DrawLine(transform.position, transform.position + velocity * futureSteps, Color.red);
+        //Debug.DrawLine(transform.position, transform.position + new Vector3(velocity.x, Mathf.Abs(velocity.y), velocity.z) * futureSteps, Color.red);
 
-        Debug.DrawLine(cam.transform.position, cam.transform.position + cam.transform.forward * ropeDistance, Color.red);
-        RaycastHit hit;
-        if (Input.GetKeyDown(KeyCode.Mouse1) && Physics.Raycast(cam.transform.position, cam.transform.forward, out hit, maxDistance, webtargets))
+        Vector3 futurePoint = transform.position + new Vector3(velocity.x, Mathf.Abs(velocity.y), velocity.z) * futureSteps;
+        WebTargetSearchPosition = futurePoint + Vector3.up * maxDistance;
+
+        RaycastHit[] allHits = new RaycastHit[0];
+        //allHits = Physics.SphereCastAll(WebTargetSearchPosition, WebTargetSphereRadius, Vector3.down * (maxDistance - WebTargetSphereRadius), maxDistance - minHeightForTarget, webtargets);
+        hasHitWebTarget = Physics.BoxCast(WebTargetSearchPosition, WebTargetSearchBoxDimensions / 2, Vector3.down * maxDistance, out webHit,
+          transform.rotation, maxDistance - minHeightForTarget, webtargets, QueryTriggerInteraction.UseGlobal); // Vector3.Distance(transform.position, WebTargetSearchPosition)
+
+        Debug.Log(webHit.point);
+
+        if (hasHitWebTarget)
         {
-            Debug.Log("Hit Web Target!");
-            Destroy(anker);
-            anker = new GameObject("Anker!");
-            anker.transform.position = hit.point;
-            ropeDistance = Vector3.Distance(transform.position, hit.point);
-            isSwinging = true;
-            lineRenderer.enabled = true;
-            oldPos = transform.position;
+            Debug.Log(webHit.point);
+        }
+        if (Input.GetKeyDown(KeyCode.Mouse1))
+        {
+
+            Vector3 webHit = FindOptiomalWebTarget();
+            if (webHit != Vector3.zero)
+            {
+                Debug.Log("Hit Web Target!");
+                Destroy(anker);
+                anker = new GameObject("Anker!");
+                anker.transform.position = webHit;
+                ropeDistance = Vector3.Distance(transform.position, webHit);
+                isSwinging = true;
+                lineRenderer.enabled = true;
+                oldPos = transform.position;
+            }
+
         }
 
         if (Input.GetKey(KeyCode.Mouse1) && isSwinging)
         {
             SwingAction();
-            animator.SetBool("Swinging", true);
         }
         else
         {
             isSwinging = false;
             lineRenderer.enabled = false;
-            animator.SetBool("Swinging", false);
+
         }
-        if (!isSwinging || (isSwinging && _isGrounded))
+
+        if (!isSwinging)
         {
-            float horizontal = Input.GetAxisRaw("Horizontal");
-            float vertical = Input.GetAxisRaw("Vertical");
-            Vector3 direction = new Vector3(horizontal, 0f, vertical);
+            UpdateAnimation();
             WalkAction();
-            if (_isGrounded && direction.magnitude > 0.2f)
-            {
-                animator.SetBool("Running", true);
-            }
-            else
-            {
-                animator.SetBool("Running", false);
-            }
         }
         if (!_isGrounded && !isSwinging)
         {
@@ -139,7 +167,11 @@ public class ThirdPersonMovement : MonoBehaviour
         // Jumping
         if (Input.GetButtonDown("Jump"))
         {
-            isSwinging = false;
+            if (isSwinging)
+            {
+                isSwinging = false;
+                SwingJumpAction();
+            }
             if (_isGrounded)
             {
                 JumpAction();
@@ -154,17 +186,112 @@ public class ThirdPersonMovement : MonoBehaviour
 
     }
 
+    private Vector3 FindOptiomalWebTarget()
+    {
+
+
+
+        //Physics.CheckBox(checkBoxPoint, WebTargetSearchBoxDimensions,Quaternion.identity, webtargets);
+        if (hasHitWebTarget)
+        {
+            Debug.Log("Target: " + webHit.point);
+            return webHit.point;
+        }
+
+        return Vector3.zero;
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (displayGizmos)
+        {
+            if (hasHitWebTarget)
+            {
+                Gizmos.color = Color.red;
+                Gizmos.DrawRay(WebTargetSearchPosition, Vector3.down * (maxDistance - minHeightForTarget));
+                //Gizmos.DrawSphere(WebTargetSearchPosition + Vector3.down * webHit.distance + Vector3.down * WebTargetSphereRadius, WebTargetSphereRadius);
+                //Gizmos.DrawWireSphere(WebTargetSearchPosition + Vector3.down * webHit.distance, WebTargetSphereRadius);
+                Gizmos.DrawWireCube(WebTargetSearchPosition + Vector3.down * webHit.distance, WebTargetSearchBoxDimensions);
+            }
+            else
+            {
+                Gizmos.color = Color.green;
+                Gizmos.DrawRay(WebTargetSearchPosition, Vector3.down * (maxDistance - minHeightForTarget));
+                Gizmos.DrawWireCube(WebTargetSearchPosition, WebTargetSearchBoxDimensions);
+                // Gizmos.DrawSphere(WebTargetSearchPosition, WebTargetSphereRadius);
+                //Gizmos.DrawWireSphere(WebTargetSearchPosition, WebTargetSphereRadius);
+            }
+
+
+        }
+
+    }
+    private void LateUpdate()
+    {
+        UpdateAnimation();
+    }
+    void UpdateAnimation()
+    {
+        if (isSwinging)
+        {
+            animator.SetBool("Swinging", true);
+        }
+        else
+        {
+            animator.SetBool("Swinging", false);
+        }
+        if (_isGrounded || (isSwinging && _isGrounded))
+        {
+            float horizontal = Input.GetAxisRaw("Horizontal");
+            float vertical = Input.GetAxisRaw("Vertical");
+            Vector3 direction = new Vector3(horizontal, 0f, vertical);
+            if (_isGrounded && (direction.magnitude > 0.2f || new Vector3(velocity.x, 0, velocity.z).magnitude > 0.2f))
+            {
+                animator.SetBool("Running", true);
+                animator.SetBool("Swinging", false);
+            }
+            else
+            {
+                animator.SetBool("Running", false);
+
+            }
+
+        }
+        else
+        {
+            animator.SetBool("Running", false);
+
+        }
+        if (!_isGrounded && !isSwinging)
+        {
+            animator.SetBool("Falling", true);
+
+        }
+        else
+        {
+            animator.SetBool("Falling", false);
+        }
+
+    }
+    void SwingJumpAction()
+    {
+
+        velocity.y += Mathf.Sqrt(jumpHeight * 5f * gravity);
+        velocity += velocity.normalized * 15;
+    }
     void SwingAction()
     {
 
-        velocity = (transform.position - oldPos) / Time.deltaTime;
+        velocity = ((transform.position - oldPos) / Time.deltaTime);
         oldPos = transform.position;
         velocity += gravityDirection * gravity * Time.deltaTime;
-        velocity += -velocity * dampening;
+        ApplyDrag();
+
 
         if (Input.GetKey(KeyCode.W))
         {
-            velocity += velocity.normalized * 2;
+            velocity += velocity.normalized * 1.5f;
+            //velocity += cam.transform.forward; // Find direction between velocity and cam forward to apply force 
         }
         if (Input.GetKey(KeyCode.A))
         {
@@ -174,7 +301,7 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             velocity += cam.transform.right * 1.1f;
         }
-        //velocity *= swingSpeed;
+
         velocity = Vector3.ClampMagnitude(velocity, maxSwingSpeed);
         //transform.position += velocity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
@@ -185,15 +312,21 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             //Vector3 constrainedPos = Vector3.Normalize(transform.localPosition - anker.transform.localPosition);
             transform.position = anker.transform.localPosition + (transform.localPosition - anker.transform.localPosition).normalized * ropeDistance;
+
         }
 
         transform.rotation = Quaternion.Euler(0, cam.rotation.eulerAngles.y, 0);
-        lineRenderer.SetPositions(new Vector3[] { transform.position, anker.transform.position });
+        lineRenderer.SetPositions(new Vector3[] { handPositionSwinging.position, anker.transform.position });
     }
 
+    void ApplyDrag()
+    {
+        velocity += -velocity * dampening;
+    }
     void FallingAction()
     {
         velocity += gravityDirection * gravity * Time.deltaTime;
+        ApplyDrag();
         //transform.position += swingVelocity * Time.deltaTime;
 
     }
@@ -211,7 +344,7 @@ public class ThirdPersonMovement : MonoBehaviour
 
     private void OnCollisionEnter(Collision other)
     {
-        Debug.Log("collision with " + other.gameObject.name);
+        //Debug.Log("collision with " + other.gameObject.name);
     }
     void WalkAction()
     {
@@ -229,6 +362,7 @@ public class ThirdPersonMovement : MonoBehaviour
 
             Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
             controller.Move(moveDirection.normalized * speed * Time.deltaTime);
+            velocity += moveDirection.normalized * speed * Time.deltaTime;
         }
         velocity += gravityDirection * gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
