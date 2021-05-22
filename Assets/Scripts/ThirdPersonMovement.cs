@@ -47,22 +47,28 @@ public class ThirdPersonMovement : MonoBehaviour
 
     public float maxDistance;
     public float maxSwingSpeed;
-    private float swingSpeed;
-    private GameObject anker;
+    public float swingSpeed;
+
 
     [Header("Best Web Target Settings")]
+    private GameObject anker;
     public bool displayGizmos;
     public float futureSteps = 0;
     public Vector3 WebTargetSearchBoxDimensions = new Vector3(3, 1, 3);
-    public float WebTargetSphereRadius = 10;
-    [Range(0, 50)]
+
+    [Min(0)]
     public float minHeightForTarget = 5;
 
     bool hasHitWebTarget;
 
-    RaycastHit webHit;
+    public float WebTargetSearchStep = 1f;
+    Vector3 webTargetPosition;
+    Vector3 velocityBeforeSwing;
 
     private Vector3 WebTargetSearchPosition = Vector3.zero;
+
+    // Web Texture
+    GameObject webTexture;
 
     // Grappling Hook
     /*
@@ -78,7 +84,7 @@ public class ThirdPersonMovement : MonoBehaviour
     */
     private void Awake()
     {
-
+        webTexture = new GameObject("WebString");
     }
     void Start()
     {
@@ -91,10 +97,9 @@ public class ThirdPersonMovement : MonoBehaviour
         lineRenderer.material = lineMaterial;
     }
 
-    // TODO SWING gravity daption 1 or 20...
-    // TODO Swing movement is buggy
     void Update()
     {
+
         _isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
         // Physics.CheckCapsule
 
@@ -110,41 +115,34 @@ public class ThirdPersonMovement : MonoBehaviour
         //Debug.DrawLine(transform.position, transform.position + velocity * futureSteps, Color.red);
         //Debug.DrawLine(transform.position, transform.position + new Vector3(velocity.x, Mathf.Abs(velocity.y), velocity.z) * futureSteps, Color.red);
 
-        Vector3 futurePoint = transform.position + new Vector3(velocity.x, Mathf.Abs(velocity.y), velocity.z) * futureSteps;
+        Vector3 futurePoint = transform.position + new Vector3(velocity.x, Mathf.Abs(velocity.y), velocity.z).normalized * futureSteps;
+        //Vector3 futurePoint = transform.position + velocity.normalized * futureSteps;
         WebTargetSearchPosition = futurePoint + Vector3.up * maxDistance;
 
-        RaycastHit[] allHits = new RaycastHit[0];
-        //allHits = Physics.SphereCastAll(WebTargetSearchPosition, WebTargetSphereRadius, Vector3.down * (maxDistance - WebTargetSphereRadius), maxDistance - minHeightForTarget, webtargets);
-        hasHitWebTarget = Physics.BoxCast(WebTargetSearchPosition, WebTargetSearchBoxDimensions / 2, Vector3.down * maxDistance, out webHit,
-          transform.rotation, maxDistance - minHeightForTarget, webtargets, QueryTriggerInteraction.UseGlobal); // Vector3.Distance(transform.position, WebTargetSearchPosition)
-
-        Debug.Log(webHit.point);
-
-        if (hasHitWebTarget)
-        {
-            Debug.Log(webHit.point);
-        }
         if (Input.GetKeyDown(KeyCode.Mouse1))
         {
 
             Vector3 webHit = FindOptiomalWebTarget();
             if (webHit != Vector3.zero)
             {
-                Debug.Log("Hit Web Target!");
+                velocityBeforeSwing = velocity;
                 Destroy(anker);
                 anker = new GameObject("Anker!");
                 anker.transform.position = webHit;
+                anker.transform.rotation = transform.rotation;
                 ropeDistance = Vector3.Distance(transform.position, webHit);
                 isSwinging = true;
                 lineRenderer.enabled = true;
-                oldPos = transform.position;
+                //oldPos = transform.position;
             }
 
         }
 
         if (Input.GetKey(KeyCode.Mouse1) && isSwinging)
         {
+
             SwingAction();
+
         }
         else
         {
@@ -190,12 +188,44 @@ public class ThirdPersonMovement : MonoBehaviour
     {
 
 
+        Collider[] allHits = new Collider[0];
 
+
+        Vector3 SearchBox = WebTargetSearchBoxDimensions;
+        for (float tempDistance = 0; tempDistance < (maxDistance - minHeightForTarget); tempDistance += WebTargetSearchStep)
+        {
+            allHits = Physics.OverlapBox(WebTargetSearchPosition, WebTargetSearchBoxDimensions / 2, transform.rotation, webtargets, QueryTriggerInteraction.UseGlobal);
+            if (allHits.Length > 0)
+            {
+                break;
+            }
+            else
+            {
+                WebTargetSearchPosition += Vector3.down * WebTargetSearchStep;
+                //SearchBox += new Vector3(0.5f, 0, 0.5f);
+
+            }
+        }
+
+
+        int bestHit = 0;
+        for (int i = 0; i < allHits.Length; i++)
+        {
+            Collider currentCollider = allHits[i];
+            Vector3 closestPoint = currentCollider.ClosestPointOnBounds(WebTargetSearchPosition);
+
+            if (Vector3.Distance(closestPoint, transform.position) > Vector3.Distance(allHits[bestHit].ClosestPointOnBounds(WebTargetSearchPosition), transform.position))
+            {
+                bestHit = i;
+            }
+
+            webTargetPosition = allHits[bestHit].ClosestPointOnBounds(WebTargetSearchPosition);
+        }
+        hasHitWebTarget = allHits.Length > 0;
         //Physics.CheckBox(checkBoxPoint, WebTargetSearchBoxDimensions,Quaternion.identity, webtargets);
         if (hasHitWebTarget)
         {
-            Debug.Log("Target: " + webHit.point);
-            return webHit.point;
+            return webTargetPosition;
         }
 
         return Vector3.zero;
@@ -211,7 +241,7 @@ public class ThirdPersonMovement : MonoBehaviour
                 Gizmos.DrawRay(WebTargetSearchPosition, Vector3.down * (maxDistance - minHeightForTarget));
                 //Gizmos.DrawSphere(WebTargetSearchPosition + Vector3.down * webHit.distance + Vector3.down * WebTargetSphereRadius, WebTargetSphereRadius);
                 //Gizmos.DrawWireSphere(WebTargetSearchPosition + Vector3.down * webHit.distance, WebTargetSphereRadius);
-                Gizmos.DrawWireCube(WebTargetSearchPosition + Vector3.down * webHit.distance, WebTargetSearchBoxDimensions);
+                Gizmos.DrawWireCube(WebTargetSearchPosition + Vector3.down * Vector3.Distance(webTargetPosition, WebTargetSearchPosition), WebTargetSearchBoxDimensions);
             }
             else
             {
@@ -290,31 +320,37 @@ public class ThirdPersonMovement : MonoBehaviour
 
         if (Input.GetKey(KeyCode.W))
         {
-            velocity += velocity.normalized * 1.5f;
-            //velocity += cam.transform.forward; // Find direction between velocity and cam forward to apply force 
+            velocity += velocity.normalized * Time.deltaTime * swingSpeed;
+            //velocity += cam.transform.forward * Time.deltaTime * swingSpeed; // Find direction between velocity and cam forward to apply force 
         }
         if (Input.GetKey(KeyCode.A))
         {
-            velocity += -cam.transform.right * 1.1f;
+            velocity += -cam.transform.right * Time.deltaTime * swingSpeed;
         }
         if (Input.GetKey(KeyCode.D))
         {
-            velocity += cam.transform.right * 1.1f;
+            velocity += cam.transform.right * Time.deltaTime * swingSpeed;
         }
 
         velocity = Vector3.ClampMagnitude(velocity, maxSwingSpeed);
         //transform.position += velocity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
         // Calculate the new distance to the anker
-        float dist = (transform.position - anker.transform.position).magnitude;
+        // float dist = (transform.position - anker.transform.position).magnitude;
+        float dist = Vector3.Distance(transform.position, anker.transform.position);
         // Constrain the position to the max distance
-        if (dist > ropeDistance)
+        if (dist != ropeDistance)
         {
             //Vector3 constrainedPos = Vector3.Normalize(transform.localPosition - anker.transform.localPosition);
             transform.position = anker.transform.localPosition + (transform.localPosition - anker.transform.localPosition).normalized * ropeDistance;
+            ropeDistance = Vector3.Distance(transform.position, anker.transform.localPosition);
 
         }
-
+        else if (dist < ropeDistance && !_isGrounded)
+        {
+            transform.position = anker.transform.localPosition + (transform.localPosition - anker.transform.localPosition).normalized * ropeDistance;
+            ropeDistance = Vector3.Distance(transform.position, anker.transform.localPosition);
+        }
         transform.rotation = Quaternion.Euler(0, cam.rotation.eulerAngles.y, 0);
         lineRenderer.SetPositions(new Vector3[] { handPositionSwinging.position, anker.transform.position });
     }
@@ -325,7 +361,7 @@ public class ThirdPersonMovement : MonoBehaviour
     }
     void FallingAction()
     {
-        velocity += gravityDirection * gravity * Time.deltaTime;
+        //velocity += gravityDirection * gravity * Time.deltaTime;
         ApplyDrag();
         //transform.position += swingVelocity * Time.deltaTime;
 
