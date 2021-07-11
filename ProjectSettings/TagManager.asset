@@ -5,6 +5,8 @@ TagManager:
   serializedVersion: 2
   tags:
   - Wall
+  - HookMarker
+  - WindSpeedParticleSystem
   layers:
   - Default
   - TransparentFX
@@ -14,8 +16,8 @@ TagManager:
   - UI
   - InteractionLayer
   - Ground
-  - 
-  - 
+  - PostProcessing
+  - HookMarker
   - 
   - 
   - 
