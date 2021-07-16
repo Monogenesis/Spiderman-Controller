@@ -15,6 +15,6 @@ Showcase video: https://www.youtube.com/watch?v=mv065IZgXNU
 
 ## Screenshots
 
-![App Screenshot](https://via.placeholder.com/468x300?text=App+Screenshot+Here)
+![Gameplay](https://raw.githubusercontent.com/Monogenesis/Spiderman-Controller/main/screenshots/gameplay.png)
 
   
