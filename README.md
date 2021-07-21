@@ -13,7 +13,7 @@ This was a assignment where we had to research one or more game mechanics from a
 Showcase video: https://www.youtube.com/watch?v=mv065IZgXNU
 ## Lessons Learned
 
-- Replicate a game mechanic from another game
+- Recreate a game mechanic from another game
 - Explore implementation of various options
 - Working with Unity
 
