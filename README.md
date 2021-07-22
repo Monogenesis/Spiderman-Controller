@@ -6,7 +6,7 @@ The focus of the project was the swinging mechanism.
 
 ## Motivation
 
-This was a assignment where we had to research one or more game mechanics from another game and recreate them ourselves.
+This was a assignment from a game development course where we had to research one or more game mechanics from another game and recreate them ourselves.
 
 ## Demo
 
