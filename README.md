@@ -9,7 +9,7 @@ The focus of the project was the swinging mechanism.
 This was a assignment from a game development course where we had to research one or more game mechanics from another game and recreate them ourselves.
 
 ## Demo
-
+[![Watch the video](https://img.youtube.com/vi/mv065IZgXNU/hqdefault.jpg)](https://www.youtube.com/watch?v=mv065IZgXNU)
 Showcase video: https://www.youtube.com/watch?v=mv065IZgXNU
 ## Lessons Learned
 
